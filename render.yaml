@@ -1,0 +1,14 @@
+# Render Blueprint: makes the H2-Go website from this repository (see "Put H2-Go online" in README.md).
+services:
+  - type: web
+    name: h2go-dlsl              # the link becomes https://h2go-dlsl.onrender.com (Render adds letters if it is taken)
+    runtime: docker
+    plan: free
+    region: singapore            # the closest to the Philippines
+    envVars:
+      - key: H2GO_DB_URL         # the online MySQL's link (Aiven: the Service URI). Render asks for it.
+        sync: false
+      - key: H2GO_ADMIN_PASSWORD # the admin password for the online H2-Go, at least 8 characters. Render asks for it.
+        sync: false
+      - key: H2GO_KEY            # the secret key for the names. Render makes a random one.
+        generateValue: true

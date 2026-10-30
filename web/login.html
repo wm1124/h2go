@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>H2-Go | Sign in</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-page">
+  <div class="login-box">
+    <h1>H2-Go</h1>
+    <p class="muted">Find a nearby, working water refill station on campus.</p>
+
+    <p id="error" class="error" hidden></p>
+
+    <!-- Sign in -->
+    <form id="login-form">
+      <label>Username <input name="username" autocomplete="username" autocapitalize="none" required></label>
+      <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="primary">Sign in</button>
+    </form>
+    <p>No account yet? <a href="#" id="show-signup">Create one</a></p>
+
+    <!-- Make a new account -->
+    <form id="signup-form" hidden>
+      <h2>Create an account</h2>
+      <label>Your name <input name="fullName" maxlength="60" required></label>
+      <label>Username <input name="username" maxlength="30" autocapitalize="none" required></label>
+      <label>Password (at least 6 characters) <input name="password" type="password" minlength="6" required></label>
+      <button type="submit" class="primary">Create account</button>
+    </form>
+  </div>
+
+  <script src="login.js"></script>
+</body>
+</html>

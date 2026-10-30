@@ -1,0 +1,4 @@
+Only needed when you run H2-Go with run.sh or run.bat (IntelliJ gets the driver from Maven).
+
+Download MySQL Connector/J from https://dev.mysql.com/downloads/connector/j/
+(Platform Independent, ZIP), unzip it and put mysql-connector-j-<version>.jar in this folder.

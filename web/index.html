@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>H2-Go</title>
+  <link rel="stylesheet" href="leaflet/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <b>H2-Go</b>
+    <span class="grow">Campus water refill stations</span>
+    <span id="hello"></span>
+    <button id="logout-btn">Sign out</button>
+  </header>
+
+  <div id="main">
+    <div id="map" data-tiles="https://tile.openstreetmap.org/{z}/{x}/{y}.png"></div>
+
+    <div id="panel">
+      <nav class="tabs">
+        <button data-tab="find" class="active">Find water</button>
+        <button data-tab="favorites">Favorites</button>
+        <button data-tab="maintenance">Maintenance</button>
+        <button data-tab="profile">My profile</button>
+      </nav>
+
+      <p id="message" hidden></p>
+
+      <!-- Tab 1: find water -->
+      <section id="tab-find">
+        <p class="legend">
+          <span><span class="dot working"></span> Working</span>
+          <span><span class="dot problem"></span> Has a problem</span>
+          <span><span class="dot broken"></span> Broken</span>
+          <span><span class="dot unknown"></span> No recent reports</span>
+          <span><span class="heart">&#9829;</span> Your favorite</span>
+        </p>
+        <p id="you-text">Click the map where you are.</p>
+        <button id="locate-btn">Use my location</button>
+
+        <form id="find-form">
+          <h3>What do you need?</h3>
+          <div id="needs">
+            <label><input type="checkbox" class="need" name="need" value="1"> Cold water</label>
+            <label><input type="checkbox" class="need" name="need" value="2"> Hot water</label>
+            <label><input type="checkbox" class="need" name="need" value="4"> Sensor tap</label>
+            <label><input type="checkbox" class="need" name="need" value="8"> Tall bottle clearance</label>
+            <label><input type="checkbox" class="need" name="need" value="32"> Filtered water</label>
+          </div>
+          <label>Bottle size
+            <select id="bottle" name="bottle">
+              <option value="SMALL">Small (500 mL)</option>
+              <option value="MEDIUM">Medium (1 L)</option>
+              <option value="LARGE">Large or tall</option>
+            </select>
+          </label>
+          <label><input type="checkbox" id="hide-broken" name="hideBroken" value="true" checked> Hide broken fountains</label>
+        </form>
+
+        <div id="results"></div>
+        <div id="details"></div>
+
+        <label class="small"><input type="checkbox" id="show-walkways"> Show the walkway graph on the map</label>
+      </section>
+
+      <!-- Tab 2: my favorite fountains -->
+      <section id="tab-favorites" hidden></section>
+
+      <!-- Tab 3: maintenance priority list -->
+      <section id="tab-maintenance" hidden></section>
+
+      <!-- Tab 4: my profile and preferences -->
+      <section id="tab-profile" hidden></section>
+    </div>
+  </div>
+
+
+  <!-- Templates: app.js copies them and fills in Java's answers (data-text, data-class, data-show, data-hide) -->
+
+  <template id="hello-text">Hi, <span data-text="fullName"></span><span data-show="admin"> (admin)</span></template>
+
+  <template id="you-at-gate">You are at the Main Gate (<span data-text="position"></span>). Click the map to move.</template>
+  <template id="you-at-click">You are at the spot you clicked (<span data-text="position"></span>). Click the map to move.</template>
+  <template id="you-at-gps">You are at your location (GPS) (<span data-text="position"></span>). Click the map to move.</template>
+
+  <template id="you-label">You</template>
+  <template id="map-credit">&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors</template>
+  <template id="no-location">Your location is not available. Phones only share it with https links. Click the map where you are instead.</template>
+  <template id="remove-question">Remove this comment?</template>
+
+  <template id="results-list">
+    <h3>Best fountains for you</h3>
+    <p class="note" data-show="outsideCampus">You are outside the campus. Click the map on the campus.</p>
+    <p class="small muted">The k-d tree found <span data-text="nearby"></span> fountains near you.</p>
+    <p data-hide="results">No fountain matches. Try fewer needs.</p>
+    <ol class="results" data-show="results"></ol>
+  </template>
+
+  <template id="result-item">
+    <li><b data-text="name"></b> <span class="badge" data-class="statusGroup" data-text="statusLabel"></span><br><span class="small">About <span data-text="walkMinutes"></span> min walk · <span data-text="queueLabel"></span> · score <span data-text="score"></span>/100</span></li>
+  </template>
+
+  <template id="station-card">
+    <div class="card">
+      <h2 data-text="name"></h2>
+      <p><span data-text="building"></span>, floor <span data-text="floor"></span></p>
+      <p><span class="badge" data-class="statusGroup" data-text="statusLabel"></span> <span data-text="confidence"></span>% sure (<span data-text="recentReportsText"></span> in 3 days)</p>
+      <p><span data-text="queueLabel"></span> · <span data-text="ratingText"></span></p>
+      <p class="small">Has: <span data-text="amenityNames"></span></p>
+      <p id="route-text"></p>
+      <button id="route-btn" class="primary">Show route</button>
+      <button id="refill-btn">I refilled here</button>
+      <button id="fav-btn"><span data-show="favorite"><span class="heart">&#9829;</span> Favorite</span><span data-hide="favorite">&#9825; Add to favorites</span></button>
+      <h3>Report this fountain</h3>
+      <form id="report-form">
+        <select name="status">
+          <option value="WORKING">Working</option>
+          <option value="NOT_COLD">Not cold</option>
+          <option value="LOW_PRESSURE">Low pressure</option>
+          <option value="DIRTY">Dirty</option>
+          <option value="LEAKING">Leaking</option>
+          <option value="BROKEN">Broken</option>
+        </select>
+        <select name="queue">
+          <option value="NONE">No line</option>
+          <option value="SHORT">Short line</option>
+          <option value="LONG">Long line (crowded)</option>
+        </select>
+        <select name="stars">
+          <option value="0">No rating</option>
+          <option value="5">5 stars</option>
+          <option value="4">4 stars</option>
+          <option value="3">3 stars</option>
+          <option value="2">2 stars</option>
+          <option value="1">1 star</option>
+        </select>
+        <input name="comment" maxlength="200" placeholder="Comment (optional)">
+        <button type="submit" class="primary">Send report</button>
+      </form>
+      <h3>Latest reports</h3>
+      <ul class="reports">
+        <li data-hide="reports">No reports yet.</li>
+      </ul>
+    </div>
+  </template>
+
+  <template id="report-item">
+    <li>
+      <span class="badge" data-class="statusGroup" data-text="statusLabel"></span>
+      <span class="small" data-show="fixed">(fixed)</span>
+      <b data-text="user"></b>
+      <span class="small muted" data-text="ago"></span>
+      <span class="stars" data-show="starsText" data-text="starsText"></span>
+      <span data-show="comment"><br><span data-text="comment"></span></span>
+      <button class="remove-btn small" data-show="canRemove">Remove</button>
+    </li>
+  </template>
+
+  <template id="route-info">About <span data-text="walkMinutes"></span> min walk (shortest way along the walkways).</template>
+
+  <template id="maintenance-tab">
+    <h3>Maintenance priority list</h3>
+    <p class="small muted">Problems from the last 7 days that are not fixed yet, most urgent first. Priority = 10 × how bad + 3 × reports + hours waiting ÷ 6.</p>
+    <p data-hide="issues">No open problems. Every fountain is fine!</p>
+    <ol class="issues" data-show="issues"></ol>
+    <p class="small muted" data-show="showAdminNote">Admins can mark problems fixed.</p>
+  </template>
+
+  <template id="issue-item">
+    <li>
+      <b data-text="station"></b>
+      <span class="badge" data-class="problemGroup" data-text="problemLabel"></span><br><span class="small">Priority <span data-text="priority"></span> · <span data-text="reports"></span> report(s) · waiting <span data-text="hoursWaiting"></span> h</span>
+      <button class="fix-btn" data-show="canFix">Mark fixed</button>
+    </li>
+  </template>
+
+  <template id="favorites-tab">
+    <h3>My favorite fountains</h3>
+    <p class="small muted" data-show="favorites">Nearest first from where You are. They have a heart on the map. Press Go for the walking route.</p>
+    <p data-hide="favorites">No favorites yet. Click a fountain on the map and press "&#9825; Add to favorites".</p>
+    <ol class="favorites" data-show="favorites"></ol>
+  </template>
+
+  <template id="favorite-item">
+    <li>
+      <b data-text="name"></b> <span class="badge" data-class="statusGroup" data-text="statusLabel"></span><br>
+      <span class="small"><span data-show="reachable">About <span data-text="walkMinutes"></span> min walk · </span><span data-text="queueLabel"></span></span><br>
+      <button class="go-btn primary">Go</button>
+      <button class="open-btn">Details</button>
+      <span class="small route-text"></span>
+    </li>
+  </template>
+
+  <template id="profile-tab">
+    <h3 data-text="fullName"></h3>
+    <p>Username: <span data-text="username"></span><br>Account: <span data-text="accountType"></span><br>Account made: <span data-text="createdAt"></span><br>Last sign-in: <span data-text="lastSignIn"></span></p>
+    <h3>My preferences</h3>
+    <form id="pref-form">
+      <label>My bottle <select name="bottle">
+          <option value="SMALL">Small (500 mL)</option>
+          <option value="MEDIUM">Medium (1 L)</option>
+          <option value="LARGE">Large or tall</option>
+        </select></label>
+      <p class="small">I always need:</p>
+      <label><input type="checkbox" name="need" value="1"> Cold water</label>
+      <label><input type="checkbox" name="need" value="2"> Hot water</label>
+      <label><input type="checkbox" name="need" value="4"> Sensor tap</label>
+      <label><input type="checkbox" name="need" value="8"> Tall bottle clearance</label>
+      <label><input type="checkbox" name="need" value="32"> Filtered water</label>
+      <button type="submit" class="primary">Save preferences</button>
+    </form>
+    <p class="small muted">Your favorite fountains are in the Favorites tab.</p>
+  </template>
+
+  <script src="leaflet/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
